@@ -11,7 +11,7 @@ local Players = game:GetService("Players")
 local Globals = require(ReplicatedStorage.Modules.Globals)
 local Maid = require(ReplicatedStorage.Modules.Maid)
 
-function CrazyDonuts.new(time: number)
+function CrazyDonuts.new(time)
 	local self = setmetatable({}, CrazyDonuts)
 	self._maid = Maid.new()
 	self.IncreaseBooster = 2
@@ -19,26 +19,27 @@ function CrazyDonuts.new(time: number)
 	self.Timer = Instance.new("IntValue")
 	self.Timer.Name = "crazyDonutsTimer"
 	self.Timer.Value = time
-	self.Timer.Parent = ServerStorage.Server
+	self.Timer.Parent = ReplicatedStorage.Server
 	self._maid:GiveTask(self.Timer)
 	self.Players = {} -- Storing old booster values
-	
 	
 	return self
 end
 
 function CrazyDonuts:Start()
 	print("Starting Crazy Donuts Time!")
-	if _G.isCrazyDonut == true then 
+	if _G.isEventOn == true then 
 		print("A Crazy Donuts time is already happening") 
 		self:Destroy() 
 		return
 	end
-	_G.isCrazyDonut = true
+	_G.isEventOn = true
 	
 	local function updateBooster(player: Player)
 		if not player then return end
 		self:_updateScreen(player)
+		task.spawn(function() self:CountDown() end)
+		
 		if not self.Players[player.Name] then
 
 			self.Players[player.Name] = {}
@@ -49,6 +50,18 @@ function CrazyDonuts:Start()
 				Data.Booster.Value = Data.Booster.Value * self.IncreaseBooster
 			end)
 		end
+		local vipTrail = player.Character.Head:FindFirstChild("VIPTrail")
+		if vipTrail then
+			vipTrail.Lifetime = 0
+		end
+		local EventTrail = ServerStorage.Tools.EventTrail:Clone()
+		EventTrail.Parent = player.Character.Head
+		local attachment0 = Instance.new("Attachment", player.Character.Head)
+		attachment0.Name = "T0"
+		local attachemnt1 = Instance.new("Attachment", player.Character.HumanoidRootPart)
+		attachemnt1.Name = "T1"
+		EventTrail.Attachment0 = attachment0
+		EventTrail.Attachment1 = attachemnt1
 	end
 	
 	local function onPlayerRemoving(player: Player)
@@ -73,8 +86,13 @@ function CrazyDonuts:Start()
 
 end
 
+function CrazyDonuts:CountDown()
+	repeat wait(1) self.Timer.Value -= 1 until self.Timer.Value < 1
+	self:Destroy()
+end
+
 function CrazyDonuts:_updateScreen(player: Player)
-	self._maid.ClientConnection = Globals.Remotes.Events.Client.setCrazyUI:FireClient(player, self.Timer.Value, true, "Message2")
+	self._maid.ClientConnection = Globals.Remotes.Events.Client.setCrazyUI:FireClient(player, self.Timer, true, "Message2")
 end
 
 function CrazyDonuts:_resetPlayersBoosters()
@@ -91,10 +109,22 @@ end
 
 function CrazyDonuts:Destroy()
 	print("Ending Crazy Donuts time!")
-	_G.isCrazyDonut = false
+	_G.isEventOn = false
 	self._maid.ClientConnection = nil
 	self:_resetPlayersBoosters()
+	
+	for player, value in pairs(self.Players) do
+		local vipTrail = Players:FindFirstChild(player).Character.Head:FindFirstChild("VIPTrail")
+		if vipTrail then
+			vipTrail.Lifetime = 1
+		end
+		local EventTrail = Players:FindFirstChild(player).Character.Head:FindFirstChild("EventTrail")
+		if EventTrail then
+			EventTrail:Destroy()
+		end
+	end
 	self._maid:DoCleaning()
 end
 
 return CrazyDonuts
+
